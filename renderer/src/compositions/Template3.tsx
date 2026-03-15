@@ -11,7 +11,6 @@ import {
 } from "./types";
 import { TimerBar } from "./components/TimerBar";
 import { AnswerReveal } from "./components/AnswerReveal";
-import { AudioTrack } from "./components/AudioTrack";
 
 const LABELS = ["A", "B", "C", "D"];
 
@@ -223,8 +222,6 @@ export const Template3: React.FC<RenderProps> = ({
           background: "linear-gradient(90deg, transparent, #FFD700, #FF9500, #FFD700, transparent)",
         }}
       />
-
-      <AudioTrack audioUrls={audioUrls} />
 
       {watermark && (
         <div

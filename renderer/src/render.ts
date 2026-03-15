@@ -3,8 +3,11 @@ import os from "os";
 import fs from "fs";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
-import { RenderProps, MultiRenderProps, VIDEO_FPS, TOTAL_FRAMES } from "./compositions/types";
-import { generateAudioSegments, cleanupTTSDir, AudioSegments } from "./tts";
+import { RenderProps, MultiRenderProps } from "./compositions/types";
+import { generateAudioFiles, cleanupTTSDir } from "./tts";
+import {
+  buildAudioEntries, questionStartMs, mixAudioIntoVideo
+} from "./ffmpeg-mix";
 
 let bundled: string | null = null;
 
@@ -15,36 +18,14 @@ async function getBundle(): Promise<string> {
     entryPoint: path.join(__dirname, "Root.tsx"),
     webpackOverride: (config) => config,
   });
-  console.log("[renderer] Bundle ready:", bundled);
+  console.log("[renderer] Bundle ready");
   return bundled;
 }
 
-/** Convert a local file path to a localhost URL served by the Express server */
-function fileToUrl(filePath: string, serverPort: number): string {
-  // We encode the path and serve it via /tts-files route
-  const encoded = encodeURIComponent(filePath);
-  return `http://localhost:${serverPort}/tts-files?p=${encoded}`;
-}
-
-function segmentsToUrls(
-  segments: AudioSegments,
-  port: number
-): { question?: string; reveal?: string; explanation?: string } {
-  return {
-    question: segments.question ? fileToUrl(segments.question, port) : undefined,
-    reveal: segments.reveal ? fileToUrl(segments.reveal, port) : undefined,
-    explanation: segments.explanation ? fileToUrl(segments.explanation, port) : undefined,
-  };
-}
-
-// ─── Single question render ──────────────────────────────────────────────────
-
-export interface SingleRenderJob {
-  jobId: string;
-  templateId: "Template1" | "Template2" | "Template3";
-  props: RenderProps;
-  outputDir?: string;
-  serverPort?: number;
+function renderDir(): string {
+  const dir = path.join(os.tmpdir(), "devinettelab-renders");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 export interface RenderResult {
@@ -53,61 +34,63 @@ export interface RenderResult {
   sizeBytes: number;
 }
 
+// ─── Single question ──────────────────────────────────────────────────────────
+
+export interface SingleRenderJob {
+  jobId: string;
+  templateId: "Template1" | "Template2" | "Template3";
+  props: RenderProps;
+  outputDir?: string;
+}
+
 export async function renderSingleVideo(job: SingleRenderJob): Promise<RenderResult> {
   const start = Date.now();
   const serveUrl = await getBundle();
+  const outDir = job.outputDir || renderDir();
 
-  const outputDir = job.outputDir || path.join(os.tmpdir(), "devinettelab-renders");
-  fs.mkdirSync(outputDir, { recursive: true });
-  const outputPath = path.join(outputDir, `${job.jobId}.mp4`);
-
-  // Generate TTS audio
-  let audioUrls: RenderProps["audioUrls"] | undefined;
-  if (job.serverPort) {
-    try {
-      console.log(`[renderer] Generating TTS for job ${job.jobId}...`);
-      const segments = await generateAudioSegments(
-        job.props.question,
-        job.jobId,
-        "",
-        job.props.lang || "fr"
-      );
-      audioUrls = segmentsToUrls(segments, job.serverPort);
-      console.log(`[renderer] TTS ready for job ${job.jobId}`);
-    } catch (err) {
-      console.warn("[renderer] TTS generation failed, rendering without audio:", err);
-    }
-  }
-
-  const inputProps: RenderProps = { ...job.props, audioUrls };
+  // Step 1: Render silent video with Remotion
+  const silentPath = path.join(outDir, `${job.jobId}-silent.mp4`);
+  const finalPath  = path.join(outDir, `${job.jobId}.mp4`);
 
   const composition = await selectComposition({
     serveUrl,
     id: job.templateId,
-    inputProps,
+    inputProps: job.props,
   });
 
+  console.log(`[renderer] Rendering ${job.templateId} (silent)...`);
   await renderMedia({
     composition,
     serveUrl,
     codec: "h264",
-    outputLocation: outputPath,
-    inputProps,
+    outputLocation: silentPath,
+    inputProps: job.props,
     pixelFormat: "yuv420p",
     crf: 18,
     onProgress: ({ progress }) => {
       const pct = Math.round(progress * 100);
-      if (pct % 10 === 0) console.log(`[renderer] Job ${job.jobId}: ${pct}%`);
+      if (pct % 20 === 0) console.log(`[renderer] Video ${job.jobId}: ${pct}%`);
     },
   });
 
+  // Step 2: Generate TTS audio
+  const lang = (job.props.lang as string) || "fr";
+  console.log(`[renderer] Generating TTS (lang: ${lang})...`);
+  const audioFiles = await generateAudioFiles(job.props.question, job.jobId, "", lang);
+
+  // Step 3: FFMPEG mix audio into video
+  const entries = buildAudioEntries(audioFiles, 0);
+  await mixAudioIntoVideo(silentPath, entries, finalPath);
+
+  // Cleanup
+  if (fs.existsSync(silentPath)) fs.unlinkSync(silentPath);
   cleanupTTSDir(job.jobId);
 
-  const stat = fs.statSync(outputPath);
-  return { outputPath, durationMs: Date.now() - start, sizeBytes: stat.size };
+  const stat = fs.statSync(finalPath);
+  return { outputPath: finalPath, durationMs: Date.now() - start, sizeBytes: stat.size };
 }
 
-// ─── Multi-question render ───────────────────────────────────────────────────
+// ─── Multi-question ───────────────────────────────────────────────────────────
 
 export interface MultiRenderJob {
   jobId: string;
@@ -116,72 +99,63 @@ export interface MultiRenderJob {
   watermark?: string;
   lang?: string;
   outputDir?: string;
-  serverPort?: number;
 }
 
 export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResult> {
   const start = Date.now();
   const serveUrl = await getBundle();
-
-  const outputDir = job.outputDir || path.join(os.tmpdir(), "devinettelab-renders");
-  fs.mkdirSync(outputDir, { recursive: true });
-  const outputPath = path.join(outputDir, `${job.jobId}.mp4`);
+  const outDir = job.outputDir || renderDir();
   const lang = job.lang || "fr";
 
-  // Generate TTS for each question
-  const audioUrlsArr: MultiRenderProps["audioUrls"] = [];
-  if (job.serverPort) {
-    for (let i = 0; i < job.questions.length; i++) {
-      try {
-        console.log(`[renderer] TTS Q${i + 1}/${job.questions.length} for job ${job.jobId}...`);
-        const segments = await generateAudioSegments(
-          job.questions[i],
-          job.jobId,
-          `q${i}`,
-          lang
-        );
-        audioUrlsArr.push(segmentsToUrls(segments, job.serverPort));
-      } catch (err) {
-        console.warn(`[renderer] TTS Q${i + 1} failed:`, err);
-        audioUrlsArr.push({});
-      }
-    }
-  }
+  const silentPath = path.join(outDir, `${job.jobId}-silent.mp4`);
+  const finalPath  = path.join(outDir, `${job.jobId}.mp4`);
 
-  const totalFrames = job.questions.length * TOTAL_FRAMES;
   const inputProps: MultiRenderProps = {
     questions: job.questions,
     templateId: job.templateId,
     watermark: job.watermark,
     lang,
-    audioUrls: audioUrlsArr.length > 0 ? audioUrlsArr : undefined,
   };
 
+  // Step 1: Render all questions as a chained silent video
+  const totalFrames = job.questions.length * 540; // TOTAL_FRAMES = 540
   const composition = await selectComposition({
     serveUrl,
     id: "MultiQuestionVideo",
     inputProps,
   });
 
-  // Override duration for dynamic composition
-  const compositionWithDuration = { ...composition, durationInFrames: totalFrames };
-
+  console.log(`[renderer] Rendering MultiQuestionVideo (${job.questions.length}q, silent)...`);
   await renderMedia({
-    composition: compositionWithDuration,
+    composition: { ...composition, durationInFrames: totalFrames },
     serveUrl,
     codec: "h264",
-    outputLocation: outputPath,
+    outputLocation: silentPath,
     inputProps,
     pixelFormat: "yuv420p",
     crf: 18,
     onProgress: ({ progress }) => {
       const pct = Math.round(progress * 100);
-      if (pct % 10 === 0) console.log(`[renderer] Multi job ${job.jobId}: ${pct}%`);
+      if (pct % 20 === 0) console.log(`[renderer] Multi ${job.jobId}: ${pct}%`);
     },
   });
 
+  // Step 2: Generate TTS for all questions and collect audio entries
+  const allEntries = [];
+  for (let i = 0; i < job.questions.length; i++) {
+    console.log(`[renderer] TTS Q${i + 1}/${job.questions.length}...`);
+    const files = await generateAudioFiles(job.questions[i], job.jobId, `q${i}`, lang);
+    const qEntries = buildAudioEntries(files, questionStartMs(i));
+    allEntries.push(...qEntries);
+  }
+
+  // Step 3: FFMPEG mix
+  await mixAudioIntoVideo(silentPath, allEntries, finalPath);
+
+  // Cleanup
+  if (fs.existsSync(silentPath)) fs.unlinkSync(silentPath);
   cleanupTTSDir(job.jobId);
 
-  const stat = fs.statSync(outputPath);
-  return { outputPath, durationMs: Date.now() - start, sizeBytes: stat.size };
+  const stat = fs.statSync(finalPath);
+  return { outputPath: finalPath, durationMs: Date.now() - start, sizeBytes: stat.size };
 }

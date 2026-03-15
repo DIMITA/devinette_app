@@ -12,7 +12,6 @@ import {
 import { OptionItem } from "./components/OptionItem";
 import { TimerBar } from "./components/TimerBar";
 import { AnswerReveal } from "./components/AnswerReveal";
-import { AudioTrack } from "./components/AudioTrack";
 
 const LABELS = ["A", "B", "C", "D"];
 
@@ -198,8 +197,6 @@ export const Template2: React.FC<RenderProps> = ({
       >
         <AvatarCharacter tailAngle={avatarTail} />
       </div>
-
-      <AudioTrack audioUrls={audioUrls} />
 
       {watermark && (
         <div

@@ -1,7 +1,5 @@
 import express, { Request, Response } from "express";
-import path from "path";
 import fs from "fs";
-import os from "os";
 import { v4 as uuidv4 } from "uuid";
 import { renderSingleVideo, renderMultiVideo } from "./render";
 import { RenderProps } from "./compositions/types";
@@ -27,27 +25,6 @@ interface Job {
 }
 
 const jobs = new Map<string, Job>();
-
-// ─── TTS static file serving ─────────────────────────────────────────────────
-// Remotion renderer (headless Chrome) fetches audio files from here during render
-
-app.get("/tts-files", (req: Request, res: Response) => {
-  const filePath = req.query.p as string;
-  if (!filePath) return res.status(400).send("Missing path");
-
-  // Security: restrict to temp directory only
-  const tmpBase = path.join(os.tmpdir(), "devinettelab-tts");
-  const resolved = path.resolve(decodeURIComponent(filePath));
-  if (!resolved.startsWith(tmpBase)) {
-    return res.status(403).send("Forbidden");
-  }
-
-  if (!fs.existsSync(resolved)) return res.status(404).send("File not found");
-
-  res.setHeader("Content-Type", "audio/mpeg");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  fs.createReadStream(resolved).pipe(res);
-});
 
 // ─── Submit single render ────────────────────────────────────────────────────
 
@@ -75,7 +52,7 @@ app.post("/render", async (req: Request, res: Response) => {
     job.status = "rendering";
     job.startedAt = Date.now();
     try {
-      const result = await renderSingleVideo({ jobId, templateId, props, serverPort: PORT });
+      const result = await renderSingleVideo({ jobId, templateId, props });
       job.status = "done";
       job.completedAt = Date.now();
       job.outputPath = result.outputPath;
@@ -122,7 +99,7 @@ app.post("/render/multi", async (req: Request, res: Response) => {
     job.startedAt = Date.now();
     try {
       const result = await renderMultiVideo({
-        jobId, templateId, questions, watermark, lang, serverPort: PORT,
+        jobId, templateId, questions, watermark, lang,
       });
       job.status = "done";
       job.completedAt = Date.now();
@@ -186,9 +163,9 @@ app.get("/render/:jobId/download", (req: Request, res: Response) => {
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    service: "DevinetteLab Renderer v2.0",
+    service: "DevinetteLab Renderer v2.1",
     jobs: jobs.size,
-    features: ["tts", "multi-question", "templates:3"],
+    features: ["tts-gtts", "ffmpeg-mix", "multi-question", "templates:3"],
   });
 });
 
