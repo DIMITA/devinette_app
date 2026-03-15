@@ -1,5 +1,5 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import { Template1 } from "./compositions/Template1";
 import { Template2 } from "./compositions/Template2";
 import { Template3 } from "./compositions/Template3";
@@ -54,3 +54,5 @@ export const RemotionRoot: React.FC = () => {
     </>
   );
 };
+
+registerRoot(RemotionRoot);

@@ -14,6 +14,7 @@ export interface RenderProps {
   timerDuration: number;    // seconds for reflection
   revealDelay: number;      // seconds before reveal
   watermark?: string;
+  [key: string]: unknown;   // Index signature for Remotion compatibility
 }
 
 export const VIDEO_FPS = 30;

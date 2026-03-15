@@ -54,7 +54,6 @@ export async function renderVideo(job: RenderJob): Promise<RenderResult> {
     codec: "h264",
     outputLocation: outputPath,
     inputProps: job.props,
-    fps: VIDEO_FPS,
     pixelFormat: "yuv420p",
     crf: 18,
     onProgress: ({ progress }) => {
