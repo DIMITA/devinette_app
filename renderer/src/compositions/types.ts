@@ -31,6 +31,7 @@ export interface MultiRenderProps {
   watermark?: string;
   lang?: string;
   audioUrls?: AudioUrls[];  // one per question
+  [key: string]: unknown;   // Index signature for Remotion compatibility
 }
 
 export const VIDEO_FPS = 30;
