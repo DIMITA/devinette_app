@@ -1,8 +1,11 @@
 import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from models.render_schemas import RenderRequest, RenderJobResponse
-from services.render_service import submit_render_job, get_render_job, get_render_download_url
+from models.render_schemas import RenderRequest, MultiRenderRequest, RenderJobResponse
+from services.render_service import (
+    submit_render_job, submit_multi_render_job,
+    get_render_job, get_render_download_url,
+)
 
 router = APIRouter()
 
@@ -22,6 +25,20 @@ async def create_render_job(req: RenderRequest):
         raise HTTPException(status_code=e.response.status_code, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur de soumission du rendu : {str(e)}")
+
+
+@router.post("/render/multi", status_code=202)
+async def create_multi_render_job(req: MultiRenderRequest):
+    """Submit a multi-question video render job."""
+    try:
+        job = await submit_multi_render_job(req)
+        return job
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Service de rendu vidéo non disponible")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/render/{job_id}")

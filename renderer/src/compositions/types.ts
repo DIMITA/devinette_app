@@ -6,6 +6,12 @@ export interface QuizQuestion {
   difficulty?: string;
 }
 
+export interface AudioUrls {
+  question?: string;     // TTS URL for question text
+  reveal?: string;       // TTS URL for answer reveal
+  explanation?: string;  // TTS URL for explanation
+}
+
 export interface RenderProps {
   question: QuizQuestion;
   questionIndex: number;
@@ -14,7 +20,17 @@ export interface RenderProps {
   timerDuration: number;    // seconds for reflection
   revealDelay: number;      // seconds before reveal
   watermark?: string;
+  audioUrls?: AudioUrls;    // Pre-generated TTS audio
+  lang?: string;
   [key: string]: unknown;   // Index signature for Remotion compatibility
+}
+
+export interface MultiRenderProps {
+  questions: QuizQuestion[];
+  templateId: "Template1" | "Template2" | "Template3";
+  watermark?: string;
+  lang?: string;
+  audioUrls?: AudioUrls[];  // one per question
 }
 
 export const VIDEO_FPS = 30;

@@ -26,6 +26,14 @@ class RenderRequest(BaseModel):
     timer_duration: int = Field(default=5, ge=3, le=15)
     reveal_delay: int = Field(default=10, ge=5, le=30)
     watermark: Optional[str] = Field(default=None, max_length=50)
+    lang: Optional[str] = Field(default="fr", max_length=5)
+
+
+class MultiRenderRequest(BaseModel):
+    questions: list[RenderQuestion] = Field(min_length=1, max_length=10)
+    template_id: TemplateId = TemplateId.template1
+    watermark: Optional[str] = Field(default=None, max_length=50)
+    lang: Optional[str] = Field(default="fr", max_length=5)
 
 
 class JobStatus(str, Enum):

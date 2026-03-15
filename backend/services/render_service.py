@@ -1,12 +1,11 @@
 import os
 import httpx
-from models.render_schemas import RenderRequest, RenderJobResponse
+from models.render_schemas import RenderRequest, MultiRenderRequest, RenderJobResponse
 
 RENDERER_URL = os.getenv("RENDERER_URL", "http://localhost:3001")
 
 
 def _build_renderer_payload(req: RenderRequest) -> dict:
-    """Convert FastAPI request to Remotion renderer format."""
     return {
         "templateId": req.template_id.value,
         "props": {
@@ -23,7 +22,26 @@ def _build_renderer_payload(req: RenderRequest) -> dict:
             "timerDuration": req.timer_duration,
             "revealDelay": req.reveal_delay,
             "watermark": req.watermark,
+            "lang": req.lang or "fr",
         },
+    }
+
+
+def _build_multi_renderer_payload(req: MultiRenderRequest) -> dict:
+    return {
+        "templateId": req.template_id.value,
+        "questions": [
+            {
+                "question": q.question,
+                "options": q.options,
+                "answer": q.answer,
+                "explanation": q.explanation,
+                "difficulty": q.difficulty,
+            }
+            for q in req.questions
+        ],
+        "watermark": req.watermark,
+        "lang": req.lang or "fr",
     }
 
 
@@ -53,3 +71,12 @@ async def get_render_job(job_id: str) -> dict:
 async def get_render_download_url(job_id: str) -> str:
     """Return the direct renderer download URL for proxying."""
     return f"{RENDERER_URL}/render/{job_id}/download"
+
+
+async def submit_multi_render_job(req: MultiRenderRequest) -> dict:
+    """Submit a multi-question render job to the renderer."""
+    payload = _build_multi_renderer_payload(req)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(f"{RENDERER_URL}/render/multi", json=payload)
+        resp.raise_for_status()
+        return resp.json()

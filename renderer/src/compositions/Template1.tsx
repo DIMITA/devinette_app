@@ -9,6 +9,7 @@ import { QuestionText } from "./components/QuestionText";
 import { OptionItem } from "./components/OptionItem";
 import { TimerBar } from "./components/TimerBar";
 import { AnswerReveal } from "./components/AnswerReveal";
+import { AudioTrack } from "./components/AudioTrack";
 
 const LABELS = ["A", "B", "C", "D"];
 
@@ -17,6 +18,7 @@ export const Template1: React.FC<RenderProps> = ({
   questionIndex,
   totalQuestions,
   watermark,
+  audioUrls,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -157,6 +159,9 @@ export const Template1: React.FC<RenderProps> = ({
         explanation={question.explanation}
         accentColor="#FFD700"
       />
+
+      {/* Audio tracks */}
+      <AudioTrack audioUrls={audioUrls} />
 
       {/* Watermark */}
       {watermark && (

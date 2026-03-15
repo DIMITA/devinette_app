@@ -94,7 +94,7 @@ export default function RenderStatus({ jobId, onDone }) {
         <div className="space-y-3">
           <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
             <p className="text-sm text-green-300 text-center">
-              🎉 Rendu terminé ! Vidéo MP4 1080×1920 prête
+              🎉 Rendu terminé !{job.questionCount > 1 ? ` ${job.questionCount} questions enchaînées` : ''} — Vidéo MP4 1080×1920 prête
             </p>
           </div>
           <a
@@ -106,7 +106,7 @@ export default function RenderStatus({ jobId, onDone }) {
             Télécharger la vidéo MP4
           </a>
           <p className="text-xs text-white/30 text-center">
-            Format TikTok 9:16 • 1080×1920 • H.264 • 30fps
+            Format TikTok 9:16 • 1080×1920 • H.264 • 30fps • 🎙️ Voix FR
           </p>
         </div>
       )}

@@ -1,29 +1,56 @@
 import express, { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import { v4 as uuidv4 } from "uuid";
-import { renderVideo } from "./render";
+import { renderSingleVideo, renderMultiVideo } from "./render";
 import { RenderProps } from "./compositions/types";
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 
-// In-memory job store (swap for Redis/DB in production)
+const PORT = parseInt(process.env.PORT || "3001", 10);
+
+// ─── Job store ───────────────────────────────────────────────────────────────
+
 interface Job {
   jobId: string;
+  mode: "single" | "multi";
   status: "pending" | "rendering" | "done" | "error";
   templateId: string;
+  questionCount: number;
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
   outputPath?: string;
   errorMessage?: string;
-  progress?: number;
 }
 
 const jobs = new Map<string, Job>();
 
-// POST /render — submit a new render job
+// ─── TTS static file serving ─────────────────────────────────────────────────
+// Remotion renderer (headless Chrome) fetches audio files from here during render
+
+app.get("/tts-files", (req: Request, res: Response) => {
+  const filePath = req.query.p as string;
+  if (!filePath) return res.status(400).send("Missing path");
+
+  // Security: restrict to temp directory only
+  const tmpBase = path.join(os.tmpdir(), "devinettelab-tts");
+  const resolved = path.resolve(decodeURIComponent(filePath));
+  if (!resolved.startsWith(tmpBase)) {
+    return res.status(403).send("Forbidden");
+  }
+
+  if (!fs.existsSync(resolved)) return res.status(404).send("File not found");
+
+  res.setHeader("Content-Type", "audio/mpeg");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  fs.createReadStream(resolved).pipe(res);
+});
+
+// ─── Submit single render ────────────────────────────────────────────────────
+
 app.post("/render", async (req: Request, res: Response) => {
   const { templateId, props } = req.body as {
     templateId: "Template1" | "Template2" | "Template3";
@@ -39,23 +66,20 @@ app.post("/render", async (req: Request, res: Response) => {
 
   const jobId = uuidv4();
   const job: Job = {
-    jobId,
-    status: "pending",
-    templateId,
-    createdAt: Date.now(),
+    jobId, mode: "single", status: "pending", templateId,
+    questionCount: 1, createdAt: Date.now(),
   };
   jobs.set(jobId, job);
 
-  // Start rendering asynchronously
   setImmediate(async () => {
     job.status = "rendering";
     job.startedAt = Date.now();
     try {
-      const result = await renderVideo({ jobId, templateId, props });
+      const result = await renderSingleVideo({ jobId, templateId, props, serverPort: PORT });
       job.status = "done";
       job.completedAt = Date.now();
       job.outputPath = result.outputPath;
-      console.log(`[server] Job ${jobId} done in ${result.durationMs}ms, ${Math.round(result.sizeBytes / 1024 / 1024 * 10) / 10}MB`);
+      console.log(`[server] Job ${jobId} done in ${result.durationMs}ms (${Math.round(result.sizeBytes / 1024 / 1024 * 10) / 10} MB)`);
     } catch (err: any) {
       job.status = "error";
       job.errorMessage = err.message || "Unknown render error";
@@ -66,53 +90,111 @@ app.post("/render", async (req: Request, res: Response) => {
   res.status(202).json({ jobId, status: "pending" });
 });
 
-// GET /render/:jobId — poll job status
+// ─── Submit multi-question render ─────────────────────────────────────────────
+
+app.post("/render/multi", async (req: Request, res: Response) => {
+  const { templateId, questions, watermark, lang } = req.body as {
+    templateId: "Template1" | "Template2" | "Template3";
+    questions: RenderProps["question"][];
+    watermark?: string;
+    lang?: string;
+  };
+
+  if (!templateId || !["Template1", "Template2", "Template3"].includes(templateId)) {
+    return res.status(400).json({ error: "templateId must be Template1, Template2, or Template3" });
+  }
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: "questions must be a non-empty array" });
+  }
+  if (questions.length > 10) {
+    return res.status(400).json({ error: "Maximum 10 questions per video" });
+  }
+
+  const jobId = uuidv4();
+  const job: Job = {
+    jobId, mode: "multi", status: "pending", templateId,
+    questionCount: questions.length, createdAt: Date.now(),
+  };
+  jobs.set(jobId, job);
+
+  setImmediate(async () => {
+    job.status = "rendering";
+    job.startedAt = Date.now();
+    try {
+      const result = await renderMultiVideo({
+        jobId, templateId, questions, watermark, lang, serverPort: PORT,
+      });
+      job.status = "done";
+      job.completedAt = Date.now();
+      job.outputPath = result.outputPath;
+      const mb = Math.round(result.sizeBytes / 1024 / 1024 * 10) / 10;
+      const sec = Math.round(result.durationMs / 1000);
+      console.log(`[server] Multi job ${jobId} done in ${sec}s (${mb} MB, ${questions.length} questions)`);
+    } catch (err: any) {
+      job.status = "error";
+      job.errorMessage = err.message || "Unknown render error";
+      console.error(`[server] Multi job ${jobId} failed:`, err);
+    }
+  });
+
+  res.status(202).json({ jobId, status: "pending", questionCount: questions.length });
+});
+
+// ─── Poll job status ──────────────────────────────────────────────────────────
+
 app.get("/render/:jobId", (req: Request, res: Response) => {
   const job = jobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
 
-  const response: Record<string, any> = {
+  const resp: Record<string, any> = {
     jobId: job.jobId,
     status: job.status,
     templateId: job.templateId,
+    mode: job.mode,
+    questionCount: job.questionCount,
     createdAt: job.createdAt,
   };
+  if (job.startedAt) resp.startedAt = job.startedAt;
+  if (job.completedAt) resp.completedAt = job.completedAt;
+  if (job.status === "error") resp.error = job.errorMessage;
+  if (job.status === "done") resp.downloadUrl = `/render/${job.jobId}/download`;
 
-  if (job.startedAt) response.startedAt = job.startedAt;
-  if (job.completedAt) response.completedAt = job.completedAt;
-  if (job.status === "error") response.error = job.errorMessage;
-  if (job.status === "done") {
-    response.downloadUrl = `/render/${job.jobId}/download`;
-  }
-
-  res.json(response);
+  res.json(resp);
 });
 
-// GET /render/:jobId/download — serve the rendered MP4
+// ─── Download MP4 ─────────────────────────────────────────────────────────────
+
 app.get("/render/:jobId/download", (req: Request, res: Response) => {
   const job = jobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: "Job not found" });
   if (job.status !== "done" || !job.outputPath) {
-    return res.status(409).json({ error: "Video not ready yet", status: job.status });
+    return res.status(409).json({ error: "Video not ready", status: job.status });
   }
   if (!fs.existsSync(job.outputPath)) {
     return res.status(410).json({ error: "Video file no longer available" });
   }
 
-  const filename = `devinettelab-${job.templateId.toLowerCase()}-${job.jobId.slice(0, 8)}.mp4`;
+  const qStr = job.mode === "multi" ? `-${job.questionCount}q` : "";
+  const filename = `devinettelab-${job.templateId.toLowerCase()}${qStr}-${job.jobId.slice(0, 8)}.mp4`;
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.setHeader("Content-Type", "video/mp4");
   fs.createReadStream(job.outputPath).pipe(res);
 });
 
-// GET /health
+// ─── Health ────────────────────────────────────────────────────────────────────
+
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", jobs: jobs.size, service: "DevinetteLab Renderer v1.0" });
+  res.json({
+    status: "ok",
+    service: "DevinetteLab Renderer v2.0",
+    jobs: jobs.size,
+    features: ["tts", "multi-question", "templates:3"],
+  });
 });
 
-const PORT = parseInt(process.env.PORT || "3001", 10);
 app.listen(PORT, () => {
-  console.log(`[server] DevinetteLab Renderer running on http://localhost:${PORT}`);
+  console.log(`[server] DevinetteLab Renderer v2.0 on http://localhost:${PORT}`);
+  console.log(`[server] Features: TTS audio | Multi-question video | 3 templates`);
 });
 
 export default app;
