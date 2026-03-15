@@ -25,27 +25,21 @@ export function buildVoiceScript(
   switch (lang) {
     case "en":
       return {
-        questionLine: `Here is your question ! ${question.question}`,
+        questionLine: question.question,
         revealLine: `The answer is... ${question.answer} !`,
-        explanationLine: question.explanation
-          ? `Did you know? ${question.explanation}`
-          : undefined,
+        explanationLine: question.explanation,
       };
     case "es":
       return {
-        questionLine: `¡ Aquí está tu pregunta ! ${question.question}`,
-        revealLine: `¡ La respuesta es... ${question.answer} !`,
-        explanationLine: question.explanation
-          ? `¿ Sabías que ? ${question.explanation}`
-          : undefined,
+        questionLine: question.question,
+        revealLine: `La respuesta es... ${question.answer} !`,
+        explanationLine: question.explanation,
       };
     default: // fr
       return {
-        questionLine: `Voici ta question ! ${question.question}`,
-        revealLine: `La bonne réponse est... ${question.answer} !`,
-        explanationLine: question.explanation
-          ? `Le savais-tu ? ${question.explanation}`
-          : undefined,
+        questionLine: question.question,
+        revealLine: `La réponse est... ${question.answer} !`,
+        explanationLine: question.explanation,
       };
   }
 }
