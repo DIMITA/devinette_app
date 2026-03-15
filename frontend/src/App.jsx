@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Header from './components/Header'
 import GeneratorForm from './components/GeneratorForm'
 import QuestionList from './components/QuestionList'
+import VideoStudio from './components/VideoStudio'
 import Footer from './components/Footer'
 
 export default function App() {
@@ -9,6 +10,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [lastParams, setLastParams] = useState(null)
+  const [showStudio, setShowStudio] = useState(false)
 
   const handleGenerate = async (params) => {
     setIsLoading(true)
@@ -45,6 +47,19 @@ export default function App() {
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
+        {/* Phase pills */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          <span className="badge bg-brand-orange/20 text-brand-orange border border-brand-orange/30 text-xs">
+            ✅ Phase 1 — Générateur de scripts
+          </span>
+          <span className="badge bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs">
+            ✅ Phase 2 — Production vidéo
+          </span>
+          <span className="badge bg-white/10 text-white/40 border border-white/10 text-xs">
+            🔜 Phase 3 — Planning & TikTok
+          </span>
+        </div>
+
         <GeneratorForm onGenerate={handleGenerate} isLoading={isLoading} />
 
         {error && (
@@ -62,11 +77,20 @@ export default function App() {
             questions={questions}
             isLoading={isLoading}
             onRegenerate={handleRegenerate}
+            onCreateVideo={() => setShowStudio(true)}
           />
         )}
       </main>
 
       <Footer />
+
+      {/* Video Studio modal */}
+      {showStudio && questions.length > 0 && (
+        <VideoStudio
+          questions={questions}
+          onClose={() => setShowStudio(false)}
+        />
+      )}
     </div>
   )
 }

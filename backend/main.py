@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routers import generate
+from routers import generate, render
 
 load_dotenv()
 
@@ -28,8 +28,9 @@ app.add_middleware(
 )
 
 app.include_router(generate.router, prefix="/api")
+app.include_router(render.router, prefix="/api")
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "DevinetteLab API v1.0"}
+    return {"status": "ok", "service": "DevinetteLab API v2.0", "phase": "1+2"}

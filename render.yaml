@@ -1,4 +1,5 @@
 services:
+  # Backend Python FastAPI
   - type: web
     name: devinettelab-api
     runtime: python
@@ -9,4 +10,20 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: RENDERER_URL
+        value: https://devinettelab-renderer.onrender.com
     healthCheckPath: /api/health
+
+  # Renderer Node.js Remotion
+  - type: web
+    name: devinettelab-renderer
+    runtime: node
+    buildCommand: cd renderer && npm install
+    startCommand: cd renderer && npx ts-node src/server.ts
+    envVars:
+      - key: PORT
+        value: "10000"
+    disk:
+      name: renders
+      mountPath: /tmp/devinettelab-renders
+      sizeGB: 5

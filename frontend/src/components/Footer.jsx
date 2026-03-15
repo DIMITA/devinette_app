@@ -5,7 +5,7 @@ export default function Footer() {
         <div className="flex items-center gap-2">
           <span className="font-black text-white/50">DevinetteLab</span>
           <span>—</span>
-          <span>Phase 1 • Générateur de scripts</span>
+          <span>Phase 1+2 • Générateur & Studio Vidéo</span>
         </div>
         <div className="flex items-center gap-4">
           <span>Propulsé par Claude AI</span>
