@@ -51,6 +51,7 @@ export const MultiQuestionVideo: React.FC<MultiRenderProps> = ({
             watermark={watermark}
             lang={lang}
             audioUrls={audioUrls?.[i]}
+            sequenceDuration={frames}
           />
         </Sequence>
         );

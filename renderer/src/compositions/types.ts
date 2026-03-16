@@ -22,6 +22,7 @@ export interface RenderProps {
   watermark?: string;
   audioUrls?: AudioUrls;    // Pre-generated TTS audio
   lang?: string;
+  sequenceDuration?: number; // frames for this question slot (multi-video only)
   [key: string]: unknown;   // Index signature for Remotion compatibility
 }
 

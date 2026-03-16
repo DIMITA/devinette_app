@@ -21,12 +21,13 @@ export const Template2: React.FC<RenderProps> = ({
   totalQuestions,
   watermark,
   audioUrls,
+  sequenceDuration,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
-  // Outro fade — uses actual sequence duration so it never goes black early
-  const outroOpacity = interpolate(frame, [durationInFrames - 20, durationInFrames], [1, 0], {
+  const outroEnd = sequenceDuration ?? OUTRO_END;
+  const outroOpacity = interpolate(frame, [outroEnd - 20, outroEnd], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

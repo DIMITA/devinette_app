@@ -18,9 +18,14 @@ export const Template1: React.FC<RenderProps> = ({
   totalQuestions,
   watermark,
   audioUrls,
+  sequenceDuration,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps } = useVideoConfig();
+
+  // Use the per-question slot duration when inside a multi-video <Sequence>,
+  // otherwise fall back to the default single-question outro frame.
+  const outroEnd = sequenceDuration ?? OUTRO_END;
 
   // Intro scale
   const introScale = spring({
@@ -31,10 +36,10 @@ export const Template1: React.FC<RenderProps> = ({
     to: 1,
   });
 
-  // Outro fade — uses actual sequence duration so it never goes black early
+  // Outro fade
   const outroOpacity = interpolate(
     frame,
-    [durationInFrames - 20, durationInFrames],
+    [outroEnd - 20, outroEnd],
     [1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
