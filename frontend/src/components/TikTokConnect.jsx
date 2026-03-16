@@ -30,6 +30,7 @@ export default function TikTokConnect({ onUserChange }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
+  const [error, setError] = useState(null)
 
   // Handle /auth/success?token=... redirect
   useEffect(() => {
@@ -65,17 +66,18 @@ export default function TikTokConnect({ onUserChange }) {
 
   const handleConnect = async () => {
     setConnecting(true)
+    setError(null)
     try {
       const r = await fetch('/api/auth/tiktok/url')
       if (!r.ok) {
-        const d = await r.json()
-        alert(d.detail || 'TikTok OAuth non disponible')
+        const d = await r.json().catch(() => ({}))
+        setError(d.detail || 'TikTok OAuth non disponible')
         return
       }
       const { url } = await r.json()
       window.location.href = url
     } catch (err) {
-      alert('Connexion impossible — vérifiez la configuration TikTok')
+      setError('Backend inaccessible — démarrez le serveur Python (port 8009)')
     } finally {
       setConnecting(false)
     }
@@ -115,22 +117,34 @@ export default function TikTokConnect({ onUserChange }) {
   }
 
   return (
-    <button
-      onClick={handleConnect}
-      disabled={connecting}
-      className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all"
-      style={{
-        background: 'linear-gradient(135deg, #010101 0%, #69C9D0 50%, #EE1D52 100%)',
-        color: 'white',
-        border: 'none',
-        cursor: connecting ? 'wait' : 'pointer',
-        opacity: connecting ? 0.7 : 1,
-      }}
-    >
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.17 8.17 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
-      </svg>
-      {connecting ? 'Connexion...' : 'Connecter TikTok'}
-    </button>
+    <div className="flex flex-col items-end gap-1.5">
+      <button
+        onClick={handleConnect}
+        disabled={connecting}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all"
+        style={{
+          background: 'linear-gradient(135deg, #010101 0%, #69C9D0 50%, #EE1D52 100%)',
+          color: 'white',
+          border: 'none',
+          cursor: connecting ? 'wait' : 'pointer',
+          opacity: connecting ? 0.7 : 1,
+        }}
+      >
+        {connecting ? (
+          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.17 8.17 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+          </svg>
+        )}
+        {connecting ? 'Connexion...' : 'Connecter TikTok'}
+      </button>
+      {error && (
+        <p className="text-xs text-red-400 max-w-xs text-right">⚠️ {error}</p>
+      )}
+    </div>
   )
 }
