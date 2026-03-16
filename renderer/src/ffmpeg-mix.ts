@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { getAudioDurationMs, AudioFiles } from "./tts";
 
 // Timeline constants (frames at 30fps)
 const FPS = 30;
@@ -42,8 +43,53 @@ export function buildAudioEntries(
   return entries;
 }
 
+/** @deprecated Use buildMultiAudioEntries for multi-question videos */
 export function questionStartMs(index: number): number {
   return frameToMs(index * TOTAL_FRAMES);
+}
+
+/**
+ * Returns the minimum frame count needed for one question slot,
+ * so that all TTS audio (question, reveal, explanation) finishes
+ * before the next question starts. Adds a 600ms safety buffer.
+ */
+export async function calcMinFrames(files: AudioFiles): Promise<number> {
+  const BUFFER_MS = 600;
+  let minEndMs = frameToMs(TOTAL_FRAMES); // floor = default 18s
+
+  if (files.explanation) {
+    const dur = await getAudioDurationMs(files.explanation);
+    minEndMs = Math.max(minEndMs, EXPLAIN_CUE_MS + dur + BUFFER_MS);
+  }
+  if (files.reveal) {
+    const dur = await getAudioDurationMs(files.reveal);
+    minEndMs = Math.max(minEndMs, REVEAL_CUE_MS + dur + BUFFER_MS);
+  }
+  if (files.question) {
+    const dur = await getAudioDurationMs(files.question);
+    // Question audio should finish before the timer — if it overflows
+    // past REVEAL_CUE_MS it would overlap reveal; cap at that boundary.
+    minEndMs = Math.max(minEndMs, QUESTION_CUE_MS + dur + BUFFER_MS);
+  }
+
+  return Math.ceil((minEndMs / 1000) * FPS);
+}
+
+/**
+ * Build audio entries for all questions using their actual per-question
+ * frame counts (which may differ from TOTAL_FRAMES).
+ */
+export function buildMultiAudioEntries(
+  allFiles: AudioFiles[],
+  framesPerQuestion: number[]
+): AudioEntry[] {
+  const entries: AudioEntry[] = [];
+  let cumulativeMs = 0;
+  for (let i = 0; i < allFiles.length; i++) {
+    entries.push(...buildAudioEntries(allFiles[i], cumulativeMs));
+    cumulativeMs += frameToMs(framesPerQuestion[i]);
+  }
+  return entries;
 }
 
 /**

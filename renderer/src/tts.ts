@@ -1,6 +1,7 @@
 import path from "path";
 import os from "os";
 import fs from "fs";
+import { spawn } from "child_process";
 
 // node-gtts uses Google Translate TTS API — free, no API key, reliable
 const gTTS = require("node-gtts");
@@ -109,6 +110,30 @@ export async function generateAudioFiles(
   }
 
   return files;
+}
+
+/** Returns the duration of an audio file in ms using ffprobe. Returns 0 on error. */
+export async function getAudioDurationMs(filePath: string): Promise<number> {
+  return new Promise((resolve) => {
+    const proc = spawn("ffprobe", [
+      "-v", "quiet",
+      "-print_format", "json",
+      "-show_format",
+      filePath,
+    ]);
+    let out = "";
+    proc.stdout.on("data", (d: Buffer) => { out += d.toString(); });
+    proc.on("close", () => {
+      try {
+        const json = JSON.parse(out);
+        const duration = parseFloat(json.format?.duration || "0");
+        resolve(Math.round(duration * 1000));
+      } catch {
+        resolve(0);
+      }
+    });
+    proc.on("error", () => resolve(0));
+  });
 }
 
 export function cleanupTTSDir(jobId: string): void {

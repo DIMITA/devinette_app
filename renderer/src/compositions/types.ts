@@ -30,8 +30,9 @@ export interface MultiRenderProps {
   templateId: "Template1" | "Template2" | "Template3";
   watermark?: string;
   lang?: string;
-  audioUrls?: AudioUrls[];  // one per question
-  [key: string]: unknown;   // Index signature for Remotion compatibility
+  audioUrls?: AudioUrls[];      // one per question
+  framesPerQuestion?: number[]; // dynamic per-question slot (fallback: TOTAL_FRAMES)
+  [key: string]: unknown;       // Index signature for Remotion compatibility
 }
 
 export const VIDEO_FPS = 30;

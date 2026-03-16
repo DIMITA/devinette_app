@@ -6,7 +6,7 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 import { RenderProps, MultiRenderProps } from "./compositions/types";
 import { generateAudioFiles, cleanupTTSDir } from "./tts";
 import {
-  buildAudioEntries, questionStartMs, mixAudioIntoVideo
+  buildAudioEntries, buildMultiAudioEntries, calcMinFrames, mixAudioIntoVideo
 } from "./ffmpeg-mix";
 
 let bundled: string | null = null;
@@ -117,12 +117,28 @@ export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResul
     lang,
   };
 
-  // Step 1: Render all questions as a chained silent video
-  const totalFrames = job.questions.length * 540; // TOTAL_FRAMES = 540
+  // Step 1: Generate TTS for ALL questions first so we can measure audio durations
+  const allFiles = [];
+  for (let i = 0; i < job.questions.length; i++) {
+    console.log(`[renderer] TTS Q${i + 1}/${job.questions.length}...`);
+    const files = await generateAudioFiles(job.questions[i], job.jobId, `q${i}`, lang);
+    allFiles.push(files);
+  }
+
+  // Step 2: Calculate per-question frame counts based on actual audio lengths
+  console.log("[renderer] Calculating per-question durations...");
+  const framesPerQuestion: number[] = await Promise.all(
+    allFiles.map((files) => calcMinFrames(files))
+  );
+  const totalFrames = framesPerQuestion.reduce((a, b) => a + b, 0);
+  console.log(`[renderer] Per-question frames: ${framesPerQuestion.join(", ")} (total: ${totalFrames})`);
+
+  // Step 3: Render Remotion video with dynamic timing
+  const propsWithFrames: MultiRenderProps = { ...inputProps, framesPerQuestion };
   const composition = await selectComposition({
     serveUrl,
     id: "MultiQuestionVideo",
-    inputProps,
+    inputProps: propsWithFrames,
   });
 
   console.log(`[renderer] Rendering MultiQuestionVideo (${job.questions.length}q, silent)...`);
@@ -131,7 +147,7 @@ export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResul
     serveUrl,
     codec: "h264",
     outputLocation: silentPath,
-    inputProps,
+    inputProps: propsWithFrames,
     pixelFormat: "yuv420p",
     crf: 18,
     onProgress: ({ progress }) => {
@@ -140,16 +156,8 @@ export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResul
     },
   });
 
-  // Step 2: Generate TTS for all questions and collect audio entries
-  const allEntries = [];
-  for (let i = 0; i < job.questions.length; i++) {
-    console.log(`[renderer] TTS Q${i + 1}/${job.questions.length}...`);
-    const files = await generateAudioFiles(job.questions[i], job.jobId, `q${i}`, lang);
-    const qEntries = buildAudioEntries(files, questionStartMs(i));
-    allEntries.push(...qEntries);
-  }
-
-  // Step 3: FFMPEG mix
+  // Step 4: Build audio entries using cumulative per-question offsets, then mix
+  const allEntries = buildMultiAudioEntries(allFiles, framesPerQuestion);
   await mixAudioIntoVideo(silentPath, allEntries, finalPath);
 
   // Cleanup

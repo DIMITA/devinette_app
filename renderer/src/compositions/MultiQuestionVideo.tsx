@@ -15,19 +15,30 @@ export const MultiQuestionVideo: React.FC<MultiRenderProps> = ({
   watermark,
   lang,
   audioUrls,
+  framesPerQuestion,
 }) => {
   const TemplateComp =
     templateId === "Template2" ? Template2 :
     templateId === "Template3" ? Template3 :
     Template1;
 
+  // Compute cumulative start frame for each question
+  const startFrames: number[] = [];
+  let acc = 0;
+  for (let i = 0; i < questions.length; i++) {
+    startFrames.push(acc);
+    acc += framesPerQuestion?.[i] ?? TOTAL_FRAMES;
+  }
+
   return (
     <AbsoluteFill>
-      {questions.map((q, i) => (
+      {questions.map((q, i) => {
+        const frames = framesPerQuestion?.[i] ?? TOTAL_FRAMES;
+        return (
         <Sequence
           key={i}
-          from={i * TOTAL_FRAMES}
-          durationInFrames={TOTAL_FRAMES}
+          from={startFrames[i]}
+          durationInFrames={frames}
           name={`Question ${i + 1}`}
         >
           <TemplateComp
@@ -42,7 +53,8 @@ export const MultiQuestionVideo: React.FC<MultiRenderProps> = ({
             audioUrls={audioUrls?.[i]}
           />
         </Sequence>
-      ))}
+        );
+      })}
     </AbsoluteFill>
   );
 };
