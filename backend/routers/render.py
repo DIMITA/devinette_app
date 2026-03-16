@@ -94,7 +94,7 @@ async def download_video(job_id: str):
         return StreamingResponse(
             stream_video(),
             media_type="video/mp4",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Service de rendu non disponible")

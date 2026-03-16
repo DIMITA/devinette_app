@@ -99,14 +99,14 @@ export default function RenderStatus({ jobId, onDone }) {
           </div>
           <a
             href={job.downloadUrl}
-            download
+            download={`devinettelab-${jobId?.slice(0, 8) || 'video'}.mp4`}
             className="btn-primary flex items-center justify-center gap-2 w-full"
           >
             <span>⬇️</span>
             Télécharger la vidéo MP4
           </a>
           <p className="text-xs text-white/30 text-center">
-            Format TikTok 9:16 • 1080×1920 • H.264 • 30fps • 🎙️ Voix FR
+            Format TikTok 9:16 • 1080×1920 • H.264 • 30fps • MP4
           </p>
         </div>
       )}
