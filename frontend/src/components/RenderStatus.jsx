@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import ScheduleModal from './ScheduleModal'
 
 const STATUS_LABELS = {
   pending: { label: 'En attente', color: 'text-yellow-400', icon: '⏳' },
@@ -7,9 +8,10 @@ const STATUS_LABELS = {
   error: { label: 'Erreur de rendu', color: 'text-red-400', icon: '❌' },
 }
 
-export default function RenderStatus({ jobId, onDone }) {
+export default function RenderStatus({ jobId, onDone, questions, templateId, videoSettings, tiktokUser }) {
   const [job, setJob] = useState(null)
   const [elapsedSec, setElapsedSec] = useState(0)
+  const [showSchedule, setShowSchedule] = useState(false)
   const pollRef = useRef(null)
   const startRef = useRef(Date.now())
 
@@ -111,10 +113,29 @@ export default function RenderStatus({ jobId, onDone }) {
             <span>⬇️</span>
             Télécharger la vidéo MP4
           </a>
+          {tiktokUser && (
+            <button
+              onClick={() => setShowSchedule(true)}
+              className="btn-secondary flex items-center justify-center gap-2 w-full"
+            >
+              📅 Planifier sur TikTok
+            </button>
+          )}
           <p className="text-xs text-white/30 text-center">
             Format TikTok 9:16 • 1080×1920 • H.264 • 30fps • MP4
           </p>
         </div>
+      )}
+
+      {showSchedule && (
+        <ScheduleModal
+          jobId={jobId}
+          questions={questions || []}
+          templateId={templateId || job?.templateId || 'Template1'}
+          videoSettings={videoSettings}
+          onClose={() => setShowSchedule(false)}
+          onScheduled={() => setShowSchedule(false)}
+        />
       )}
     </div>
   )

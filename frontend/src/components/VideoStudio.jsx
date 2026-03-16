@@ -4,7 +4,7 @@ import RenderStatus from './RenderStatus'
 import VoicePicker from './VoicePicker'
 import StylePicker from './StylePicker'
 
-export default function VideoStudio({ questions, onClose }) {
+export default function VideoStudio({ questions, tiktokUser, onClose }) {
   const [mode, setMode] = useState(questions.length > 1 ? 'multi' : 'single')
   const [selectedQuestion, setSelectedQuestion] = useState(0)
   const [templateId, setTemplateId] = useState('Template1')
@@ -275,7 +275,14 @@ export default function VideoStudio({ questions, onClose }) {
           </div>
         ) : (
           <div className="space-y-4">
-            <RenderStatus jobId={jobId} onDone={() => {}} />
+            <RenderStatus
+            jobId={jobId}
+            onDone={() => {}}
+            questions={isMulti ? questions : [question]}
+            templateId={templateId}
+            videoSettings={{ voice, colorScheme, bgPattern }}
+            tiktokUser={tiktokUser}
+          />
             <button onClick={() => { setJobId(null); setError(null) }} className="btn-secondary w-full text-sm">
               ← Faire une autre vidéo
             </button>
