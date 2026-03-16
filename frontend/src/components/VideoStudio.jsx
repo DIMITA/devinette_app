@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import TemplatePicker from './TemplatePicker'
 import RenderStatus from './RenderStatus'
+import VoicePicker from './VoicePicker'
 
 export default function VideoStudio({ questions, onClose }) {
   const [mode, setMode] = useState(questions.length > 1 ? 'multi' : 'single')
@@ -9,6 +10,7 @@ export default function VideoStudio({ questions, onClose }) {
   const [watermark, setWatermark] = useState('')
   const [timerDuration, setTimerDuration] = useState(5)
   const [includeExplanation, setIncludeExplanation] = useState(true)
+  const [voice, setVoice] = useState('fr')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobId, setJobId] = useState(null)
   const [error, setError] = useState(null)
@@ -37,7 +39,7 @@ export default function VideoStudio({ questions, onClose }) {
             questions: questions.map(stripExplanation),
             template_id: templateId,
             watermark: watermark.trim() || null,
-            lang: 'fr',
+            lang: voice,
           }),
         })
       } else {
@@ -53,7 +55,7 @@ export default function VideoStudio({ questions, onClose }) {
             timer_duration: timerDuration,
             reveal_delay: timerDuration + 5,
             watermark: watermark.trim() || null,
-            lang: 'fr',
+            lang: voice,
           }),
         })
       }
@@ -80,7 +82,7 @@ export default function VideoStudio({ questions, onClose }) {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-black">🎬 Studio Vidéo</h2>
-            <p className="text-white/50 text-sm mt-1">MP4 1080×1920 · 30fps · H.264 · Voix FR</p>
+            <p className="text-white/50 text-sm mt-1">MP4 1080×1920 · 30fps · H.264</p>
           </div>
           <button onClick={onClose} className="btn-secondary w-10 h-10 flex items-center justify-center text-xl p-0">✕</button>
         </div>
@@ -166,13 +168,9 @@ export default function VideoStudio({ questions, onClose }) {
               <TemplatePicker selected={templateId} onChange={setTemplateId} />
             </div>
 
-            {/* Audio info */}
-            <div className="flex items-center gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-              <span className="text-2xl">🎙️</span>
-              <div>
-                <p className="text-sm font-bold text-blue-300">Voix automatique incluse</p>
-                <p className="text-xs text-white/50 mt-0.5">La question, la réponse et l'explication seront lues en voix française (Microsoft Edge TTS)</p>
-              </div>
+            {/* Voice picker */}
+            <div className="card">
+              <VoicePicker value={voice} onChange={setVoice} />
             </div>
 
             {/* Settings */}
@@ -222,7 +220,7 @@ export default function VideoStudio({ questions, onClose }) {
                 '9:16 TikTok',
                 `~${totalDurationSec}s`,
                 isMulti ? `${questions.length} questions` : '1 question',
-                '🎙️ Voix FR',
+                `🎙️ ${voice.toUpperCase()}`,
               ].map(s => (
                 <span key={s} className="px-2 py-1 bg-white/5 rounded-full">{s}</span>
               ))}

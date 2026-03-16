@@ -1,8 +1,11 @@
 import express, { Request, Response } from "express";
 import fs from "fs";
+import path from "path";
+import os from "os";
 import { v4 as uuidv4 } from "uuid";
 import { renderSingleVideo, renderMultiVideo } from "./render";
 import { RenderProps } from "./compositions/types";
+import { speakToFile } from "./tts";
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
@@ -25,6 +28,47 @@ interface Job {
 }
 
 const jobs = new Map<string, Job>();
+
+// ─── TTS voice preview ────────────────────────────────────────────────────────
+
+const VOICE_SAMPLES: Record<string, string> = {
+  "fr":    "La réponse est Paris, la capitale de la France !",
+  "fr-CA": "La réponse est Montréal, la plus grande ville du Québec !",
+  "en":    "The answer is Paris, the capital of France!",
+  "en-GB": "The answer is London, the capital of the United Kingdom!",
+  "en-AU": "The answer is Canberra, the capital of Australia!",
+  "es":    "¡La respuesta es Madrid, la capital de España!",
+  "es-MX": "¡La respuesta es Ciudad de México, la capital de México!",
+  "ar":    "الإجابة هي باريس، عاصمة فرنسا!",
+  "de":    "Die Antwort ist Berlin, die Hauptstadt Deutschlands!",
+  "pt":    "A resposta é Lisboa, a capital de Portugal!",
+  "pt-BR": "A resposta é Brasília, a capital do Brasil!",
+  "it":    "La risposta è Roma, la capitale dell'Italia!",
+  "nl":    "Het antwoord is Amsterdam, de hoofdstad van Nederland!",
+  "ru":    "Ответ — Москва, столица России!",
+  "ja":    "答えは東京、日本の首都です！",
+  "zh":    "答案是北京，中国的首都！",
+};
+
+app.get("/tts/preview", async (req: Request, res: Response) => {
+  const voice = (req.query.voice as string) || "fr";
+  const text = (req.query.text as string) || VOICE_SAMPLES[voice] || VOICE_SAMPLES["fr"];
+
+  const tmpPath = path.join(os.tmpdir(), `tts-preview-${Date.now()}.mp3`);
+  try {
+    await speakToFile(text, voice, tmpPath);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    const stream = fs.createReadStream(tmpPath);
+    stream.pipe(res);
+    stream.on("close", () => {
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    });
+  } catch (err: any) {
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    res.status(500).json({ error: "TTS preview failed", detail: err.message });
+  }
+});
 
 // ─── Submit single render ────────────────────────────────────────────────────
 
@@ -70,11 +114,12 @@ app.post("/render", async (req: Request, res: Response) => {
 // ─── Submit multi-question render ─────────────────────────────────────────────
 
 app.post("/render/multi", async (req: Request, res: Response) => {
-  const { templateId, questions, watermark, lang } = req.body as {
+  const { templateId, questions, watermark, lang, voice } = req.body as {
     templateId: "Template1" | "Template2" | "Template3";
     questions: RenderProps["question"][];
     watermark?: string;
     lang?: string;
+    voice?: string;
   };
 
   if (!templateId || !["Template1", "Template2", "Template3"].includes(templateId)) {
@@ -99,7 +144,7 @@ app.post("/render/multi", async (req: Request, res: Response) => {
     job.startedAt = Date.now();
     try {
       const result = await renderMultiVideo({
-        jobId, templateId, questions, watermark, lang,
+        jobId, templateId, questions, watermark, lang: voice || lang,
       });
       job.status = "done";
       job.completedAt = Date.now();

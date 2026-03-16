@@ -1,5 +1,6 @@
+import os
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from models.render_schemas import RenderRequest, MultiRenderRequest, RenderJobResponse
 from services.render_service import (
@@ -8,6 +9,26 @@ from services.render_service import (
 )
 
 router = APIRouter()
+
+RENDERER_URL = os.getenv("RENDERER_URL", "http://localhost:3001")
+
+
+@router.get("/tts/preview")
+async def tts_preview(voice: str = Query(default="fr", max_length=10)):
+    """Proxy a TTS audio preview from the renderer. Returns an MP3 stream."""
+    try:
+        async def stream_audio():
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                async with client.stream("GET", f"{RENDERER_URL}/tts/preview", params={"voice": voice}) as r:
+                    r.raise_for_status()
+                    async for chunk in r.aiter_bytes(chunk_size=4096):
+                        yield chunk
+
+        return StreamingResponse(stream_audio(), media_type="audio/mpeg")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Service de rendu non disponible")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/render", status_code=202)

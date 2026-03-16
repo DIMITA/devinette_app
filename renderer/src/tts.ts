@@ -8,9 +8,21 @@ const gTTS = require("node-gtts");
 
 const LANG_MAP: Record<string, string> = {
   fr: "fr",
+  "fr-CA": "fr-CA",
   en: "en",
+  "en-GB": "en-GB",
+  "en-AU": "en-AU",
   es: "es",
+  "es-MX": "es-MX",
   ar: "ar",
+  de: "de",
+  pt: "pt",
+  "pt-BR": "pt-BR",
+  it: "it",
+  nl: "nl",
+  ru: "ru",
+  ja: "ja",
+  zh: "zh-CN",
 };
 
 export interface VoiceScript {
@@ -45,7 +57,7 @@ export function buildVoiceScript(
   }
 }
 
-async function speakToFile(text: string, lang: string, outPath: string): Promise<void> {
+export async function speakToFile(text: string, lang: string, outPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       const tts = gTTS(lang);
