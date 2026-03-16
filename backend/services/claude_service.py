@@ -90,12 +90,15 @@ async def generate_questions(req: GenerateRequest) -> list[Question]:
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY n'est pas configurée")
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        timeout=60.0  # Timeout de 60 secondes
+    )
     prompt = build_prompt(req)
 
     message = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=4096,
+        model="claude-3-haiku-20240307",
+        max_tokens=1096,
         messages=[{"role": "user", "content": prompt}],
     )
 
