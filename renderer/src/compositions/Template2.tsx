@@ -23,9 +23,10 @@ export const Template2: React.FC<RenderProps> = ({
   audioUrls,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
 
-  const outroOpacity = interpolate(frame, [OUTRO_END - 20, OUTRO_END], [1, 0], {
+  // Outro fade — uses actual sequence duration so it never goes black early
+  const outroOpacity = interpolate(frame, [durationInFrames - 20, durationInFrames], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

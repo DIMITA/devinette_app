@@ -1,7 +1,7 @@
 import os
 import httpx
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from models.render_schemas import RenderRequest, MultiRenderRequest, RenderJobResponse
 from services.render_service import (
     submit_render_job, submit_multi_render_job,
@@ -15,18 +15,16 @@ RENDERER_URL = os.getenv("RENDERER_URL", "http://localhost:3001")
 
 @router.get("/tts/preview")
 async def tts_preview(voice: str = Query(default="fr", max_length=10)):
-    """Proxy a TTS audio preview from the renderer. Returns an MP3 stream."""
+    """Proxy a TTS audio preview from the renderer. Returns an MP3."""
     try:
-        async def stream_audio():
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                async with client.stream("GET", f"{RENDERER_URL}/tts/preview", params={"voice": voice}) as r:
-                    r.raise_for_status()
-                    async for chunk in r.aiter_bytes(chunk_size=4096):
-                        yield chunk
-
-        return StreamingResponse(stream_audio(), media_type="audio/mpeg")
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(f"{RENDERER_URL}/tts/preview", params={"voice": voice})
+            r.raise_for_status()
+            return Response(content=r.content, media_type="audio/mpeg")
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Service de rendu non disponible")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"TTS preview failed: {e.response.status_code}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -96,7 +94,7 @@ async def download_video(job_id: str):
         return StreamingResponse(
             stream_video(),
             media_type="video/mp4",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Service de rendu non disponible")
