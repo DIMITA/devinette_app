@@ -2,6 +2,7 @@ import { useState } from 'react'
 import TemplatePicker from './TemplatePicker'
 import RenderStatus from './RenderStatus'
 import VoicePicker from './VoicePicker'
+import StylePicker from './StylePicker'
 
 export default function VideoStudio({ questions, onClose }) {
   const [mode, setMode] = useState(questions.length > 1 ? 'multi' : 'single')
@@ -11,6 +12,8 @@ export default function VideoStudio({ questions, onClose }) {
   const [timerDuration, setTimerDuration] = useState(5)
   const [includeExplanation, setIncludeExplanation] = useState(true)
   const [voice, setVoice] = useState('fr')
+  const [colorScheme, setColorScheme] = useState('orange')
+  const [bgPattern, setBgPattern] = useState('rays')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobId, setJobId] = useState(null)
   const [error, setError] = useState(null)
@@ -39,7 +42,9 @@ export default function VideoStudio({ questions, onClose }) {
             questions: questions.map(stripExplanation),
             template_id: templateId,
             watermark: watermark.trim() || null,
-            lang: voice,
+            voice,
+            color_scheme: colorScheme,
+            bg_pattern: bgPattern,
           }),
         })
       } else {
@@ -56,6 +61,8 @@ export default function VideoStudio({ questions, onClose }) {
             reveal_delay: timerDuration + 5,
             watermark: watermark.trim() || null,
             lang: voice,
+            color_scheme: colorScheme,
+            bg_pattern: bgPattern,
           }),
         })
       }
@@ -173,6 +180,16 @@ export default function VideoStudio({ questions, onClose }) {
               <VoicePicker value={voice} onChange={setVoice} />
             </div>
 
+            {/* Style picker */}
+            <div className="card">
+              <StylePicker
+                colorScheme={colorScheme}
+                onColorChange={setColorScheme}
+                bgPattern={bgPattern}
+                onPatternChange={setBgPattern}
+              />
+            </div>
+
             {/* Settings */}
             <div className="card space-y-4">
               <p className="font-bold text-sm">⚙️ Réglages</p>
@@ -221,6 +238,8 @@ export default function VideoStudio({ questions, onClose }) {
                 `~${totalDurationSec}s`,
                 isMulti ? `${questions.length} questions` : '1 question',
                 `🎙️ ${voice.toUpperCase()}`,
+                `🎨 ${colorScheme}`,
+                `🌀 ${bgPattern}`,
               ].map(s => (
                 <span key={s} className="px-2 py-1 bg-white/5 rounded-full">{s}</span>
               ))}

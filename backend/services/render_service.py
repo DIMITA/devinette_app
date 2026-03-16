@@ -23,6 +23,8 @@ def _build_renderer_payload(req: RenderRequest) -> dict:
             "revealDelay": req.reveal_delay,
             "watermark": req.watermark,
             "lang": req.lang or "fr",
+            "colorScheme": req.color_scheme,
+            "bgPattern": req.bg_pattern,
         },
     }
 
@@ -42,6 +44,9 @@ def _build_multi_renderer_payload(req: MultiRenderRequest) -> dict:
         ],
         "watermark": req.watermark,
         "lang": req.lang or "fr",
+        "voice": req.voice,
+        "colorScheme": req.color_scheme,
+        "bgPattern": req.bg_pattern,
     }
 
 

@@ -41,6 +41,7 @@ export interface SingleRenderJob {
   templateId: "Template1" | "Template2" | "Template3";
   props: RenderProps;
   outputDir?: string;
+  onProgress?: (pct: number) => void;
 }
 
 export async function renderSingleVideo(job: SingleRenderJob): Promise<RenderResult> {
@@ -69,18 +70,25 @@ export async function renderSingleVideo(job: SingleRenderJob): Promise<RenderRes
     crf: 18,
     onProgress: ({ progress }) => {
       const pct = Math.round(progress * 100);
+      // Remotion render = 15–88%
+      job.onProgress?.(15 + Math.round(pct * 0.73));
       if (pct % 20 === 0) console.log(`[renderer] Video ${job.jobId}: ${pct}%`);
     },
   });
+
+  job.onProgress?.(5);
 
   // Step 2: Generate TTS audio
   const lang = (job.props.lang as string) || "fr";
   console.log(`[renderer] Generating TTS (lang: ${lang})...`);
   const audioFiles = await generateAudioFiles(job.props.question, job.jobId, "", lang);
+  job.onProgress?.(15);
 
   // Step 3: FFMPEG mix audio into video
   const entries = buildAudioEntries(audioFiles, 0);
+  job.onProgress?.(90);
   await mixAudioIntoVideo(silentPath, entries, finalPath);
+  job.onProgress?.(98);
 
   // Cleanup
   if (fs.existsSync(silentPath)) fs.unlinkSync(silentPath);
@@ -98,7 +106,10 @@ export interface MultiRenderJob {
   templateId: MultiRenderProps["templateId"];
   watermark?: string;
   lang?: string;
+  colorScheme?: string;
+  bgPattern?: string;
   outputDir?: string;
+  onProgress?: (pct: number) => void;
 }
 
 export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResult> {
@@ -115,6 +126,8 @@ export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResul
     templateId: job.templateId,
     watermark: job.watermark,
     lang,
+    colorScheme: job.colorScheme,
+    bgPattern: job.bgPattern,
   };
 
   // Step 1: Generate TTS for ALL questions first so we can measure audio durations
@@ -123,6 +136,8 @@ export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResul
     console.log(`[renderer] TTS Q${i + 1}/${job.questions.length}...`);
     const files = await generateAudioFiles(job.questions[i], job.jobId, `q${i}`, lang);
     allFiles.push(files);
+    // TTS generation = 0-15%
+    job.onProgress?.(Math.round(((i + 1) / job.questions.length) * 15));
   }
 
   // Step 2: Calculate per-question frame counts based on actual audio lengths
@@ -152,13 +167,17 @@ export async function renderMultiVideo(job: MultiRenderJob): Promise<RenderResul
     crf: 18,
     onProgress: ({ progress }) => {
       const pct = Math.round(progress * 100);
+      // Remotion render = 20-88%
+      job.onProgress?.(20 + Math.round(pct * 0.68));
       if (pct % 20 === 0) console.log(`[renderer] Multi ${job.jobId}: ${pct}%`);
     },
   });
 
   // Step 4: Build audio entries using cumulative per-question offsets, then mix
+  job.onProgress?.(90);
   const allEntries = buildMultiAudioEntries(allFiles, framesPerQuestion);
   await mixAudioIntoVideo(silentPath, allEntries, finalPath);
+  job.onProgress?.(98);
 
   // Cleanup
   if (fs.existsSync(silentPath)) fs.unlinkSync(silentPath);

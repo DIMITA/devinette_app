@@ -68,16 +68,22 @@ export default function RenderStatus({ jobId, onDone }) {
       {/* Progress bar for rendering */}
       {(job.status === 'pending' || job.status === 'rendering') && (
         <div className="mb-4">
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-white/40">
+              {job.status === 'rendering' ? 'Rendu en cours...' : 'En attente du worker...'}
+            </span>
+            <span className="text-xs font-bold text-blue-400">{job.progress ?? 0}%</span>
+          </div>
+          <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-blue-500 to-brand-orange rounded-full animate-pulse-fast"
-              style={{ width: job.status === 'rendering' ? '60%' : '15%', transition: 'width 1s ease' }}
+              className="h-full bg-gradient-to-r from-blue-500 to-brand-orange rounded-full"
+              style={{ width: `${job.progress ?? 0}%`, transition: 'width 0.8s ease' }}
             />
           </div>
-          <p className="text-xs text-white/40 mt-2 text-center">
+          <p className="text-xs text-white/30 mt-2 text-center">
             {job.status === 'rendering'
-              ? 'Composition et encodage MP4 en cours... (1-2 min)'
-              : 'En attente du worker...'}
+              ? 'Composition Remotion + encodage MP4 (1-2 min)'
+              : 'Initialisation...'}
           </p>
         </div>
       )}

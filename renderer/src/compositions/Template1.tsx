@@ -9,6 +9,8 @@ import { QuestionText } from "./components/QuestionText";
 import { OptionItem } from "./components/OptionItem";
 import { TimerBar } from "./components/TimerBar";
 import { AnswerReveal } from "./components/AnswerReveal";
+import { BgDecoration } from "./components/BgDecoration";
+import { getColorScheme } from "./themes";
 
 const LABELS = ["A", "B", "C", "D"];
 
@@ -19,30 +21,16 @@ export const Template1: React.FC<RenderProps> = ({
   watermark,
   audioUrls,
   sequenceDuration,
+  colorScheme,
+  bgPattern,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-
-  // Use the per-question slot duration when inside a multi-video <Sequence>,
-  // otherwise fall back to the default single-question outro frame.
+  const scheme = getColorScheme(colorScheme);
   const outroEnd = sequenceDuration ?? OUTRO_END;
 
-  // Intro scale
-  const introScale = spring({
-    fps,
-    frame,
-    config: { damping: 20, stiffness: 200 },
-    from: 0.85,
-    to: 1,
-  });
-
-  // Outro fade
-  const outroOpacity = interpolate(
-    frame,
-    [outroEnd - 20, outroEnd],
-    [1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
+  const introScale = spring({ fps, frame, config: { damping: 20, stiffness: 200 }, from: 0.85, to: 1 });
+  const outroOpacity = interpolate(frame, [outroEnd - 20, outroEnd], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const correctIndex = question.options
     ? question.options.findIndex(o => o === question.answer)
@@ -51,14 +39,13 @@ export const Template1: React.FC<RenderProps> = ({
   return (
     <AbsoluteFill
       style={{
-        background: "linear-gradient(160deg, #FF8C38 0%, #FF6B00 50%, #E05500 100%)",
+        background: scheme.bg,
         opacity: outroOpacity,
         transform: frame < INTRO_END ? `scale(${introScale})` : "scale(1)",
         overflow: "hidden",
       }}
     >
-      {/* Decorative rays */}
-      <RaysBg />
+      <BgDecoration pattern={bgPattern ?? "rays"} accent={scheme.accent} />
 
       {/* Top brand bar */}
       <div
@@ -123,9 +110,9 @@ export const Template1: React.FC<RenderProps> = ({
               text={opt}
               index={i}
               isCorrect={i === correctIndex}
-              bgColor="rgba(0,0,0,0.20)"
-              correctColor="#00E676"
-              labelBg="rgba(255,255,255,0.25)"
+              bgColor={scheme.optionBg}
+              correctColor={scheme.accent}
+              labelBg={scheme.labelBg}
             />
           ))}
         </div>
@@ -161,7 +148,7 @@ export const Template1: React.FC<RenderProps> = ({
       <AnswerReveal
         answer={question.answer}
         explanation={question.explanation}
-        accentColor="#FFD700"
+        accentColor={scheme.accent}
       />
 
       {/* Watermark */}
@@ -184,38 +171,3 @@ export const Template1: React.FC<RenderProps> = ({
   );
 };
 
-// Decorative sunburst background rays
-const RaysBg: React.FC = () => {
-  const frame = useCurrentFrame();
-  const rotation = interpolate(frame, [0, 540], [0, 15]);
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        width: 2400,
-        height: 2400,
-        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-        opacity: 0.08,
-      }}
-    >
-      {Array.from({ length: 12 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            width: 1200,
-            height: 60,
-            background: "white",
-            transformOrigin: "0 50%",
-            transform: `translateY(-50%) rotate(${i * 30}deg)`,
-          }}
-        />
-      ))}
-    </div>
-  );
-};

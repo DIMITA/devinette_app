@@ -17,13 +17,15 @@ export interface RenderProps {
   questionIndex: number;
   totalQuestions: number;
   showTimer: boolean;
-  timerDuration: number;    // seconds for reflection
-  revealDelay: number;      // seconds before reveal
+  timerDuration: number;
+  revealDelay: number;
   watermark?: string;
-  audioUrls?: AudioUrls;    // Pre-generated TTS audio
+  audioUrls?: AudioUrls;
   lang?: string;
-  sequenceDuration?: number; // frames for this question slot (multi-video only)
-  [key: string]: unknown;   // Index signature for Remotion compatibility
+  colorScheme?: string;   // e.g. 'orange', 'blue', 'purple' — see themes.ts
+  bgPattern?: string;     // e.g. 'rays', 'particles', 'dots', 'none'
+  sequenceDuration?: number;
+  [key: string]: unknown;
 }
 
 export interface MultiRenderProps {
@@ -31,9 +33,11 @@ export interface MultiRenderProps {
   templateId: "Template1" | "Template2" | "Template3";
   watermark?: string;
   lang?: string;
-  audioUrls?: AudioUrls[];      // one per question
-  framesPerQuestion?: number[]; // dynamic per-question slot (fallback: TOTAL_FRAMES)
-  [key: string]: unknown;       // Index signature for Remotion compatibility
+  colorScheme?: string;
+  bgPattern?: string;
+  audioUrls?: AudioUrls[];
+  framesPerQuestion?: number[];
+  [key: string]: unknown;
 }
 
 export const VIDEO_FPS = 30;

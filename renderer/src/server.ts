@@ -25,6 +25,7 @@ interface Job {
   completedAt?: number;
   outputPath?: string;
   errorMessage?: string;
+  progress: number; // 0-100
 }
 
 const jobs = new Map<string, Job>();
@@ -88,7 +89,7 @@ app.post("/render", async (req: Request, res: Response) => {
   const jobId = uuidv4();
   const job: Job = {
     jobId, mode: "single", status: "pending", templateId,
-    questionCount: 1, createdAt: Date.now(),
+    questionCount: 1, createdAt: Date.now(), progress: 0,
   };
   jobs.set(jobId, job);
 
@@ -96,7 +97,10 @@ app.post("/render", async (req: Request, res: Response) => {
     job.status = "rendering";
     job.startedAt = Date.now();
     try {
-      const result = await renderSingleVideo({ jobId, templateId, props });
+      const result = await renderSingleVideo({
+        jobId, templateId, props,
+        onProgress: (pct) => { job.progress = pct; },
+      });
       job.status = "done";
       job.completedAt = Date.now();
       job.outputPath = result.outputPath;
@@ -114,12 +118,14 @@ app.post("/render", async (req: Request, res: Response) => {
 // ─── Submit multi-question render ─────────────────────────────────────────────
 
 app.post("/render/multi", async (req: Request, res: Response) => {
-  const { templateId, questions, watermark, lang, voice } = req.body as {
+  const { templateId, questions, watermark, lang, voice, colorScheme, bgPattern } = req.body as {
     templateId: "Template1" | "Template2" | "Template3";
     questions: RenderProps["question"][];
     watermark?: string;
     lang?: string;
     voice?: string;
+    colorScheme?: string;
+    bgPattern?: string;
   };
 
   if (!templateId || !["Template1", "Template2", "Template3"].includes(templateId)) {
@@ -135,7 +141,7 @@ app.post("/render/multi", async (req: Request, res: Response) => {
   const jobId = uuidv4();
   const job: Job = {
     jobId, mode: "multi", status: "pending", templateId,
-    questionCount: questions.length, createdAt: Date.now(),
+    questionCount: questions.length, createdAt: Date.now(), progress: 0,
   };
   jobs.set(jobId, job);
 
@@ -145,6 +151,8 @@ app.post("/render/multi", async (req: Request, res: Response) => {
     try {
       const result = await renderMultiVideo({
         jobId, templateId, questions, watermark, lang: voice || lang,
+        colorScheme, bgPattern,
+        onProgress: (pct) => { job.progress = pct; },
       });
       job.status = "done";
       job.completedAt = Date.now();
@@ -175,6 +183,7 @@ app.get("/render/:jobId", (req: Request, res: Response) => {
     mode: job.mode,
     questionCount: job.questionCount,
     createdAt: job.createdAt,
+    progress: job.progress ?? 0,
   };
   if (job.startedAt) resp.startedAt = job.startedAt;
   if (job.completedAt) resp.completedAt = job.completedAt;

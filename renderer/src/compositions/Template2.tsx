@@ -12,6 +12,8 @@ import {
 import { OptionItem } from "./components/OptionItem";
 import { TimerBar } from "./components/TimerBar";
 import { AnswerReveal } from "./components/AnswerReveal";
+import { BgDecoration } from "./components/BgDecoration";
+import { getColorScheme } from "./themes";
 
 const LABELS = ["A", "B", "C", "D"];
 
@@ -22,10 +24,12 @@ export const Template2: React.FC<RenderProps> = ({
   watermark,
   audioUrls,
   sequenceDuration,
+  colorScheme,
+  bgPattern,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-
+  const scheme = getColorScheme(colorScheme);
   const outroEnd = sequenceDuration ?? OUTRO_END;
   const outroOpacity = interpolate(frame, [outroEnd - 20, outroEnd], [1, 0], {
     extrapolateLeft: "clamp",
@@ -55,17 +59,9 @@ export const Template2: React.FC<RenderProps> = ({
         transform: frame < INTRO_END ? `scale(${introScale})` : "scale(1)",
       }}
     >
-      {/* Gradient background */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(180deg, #FF9B40 0%, #FF6B00 45%, #CC4400 100%)",
-        }}
-      />
-
-      {/* Animated polka dots */}
-      <PolkaDotBg frame={frame} />
+      {/* Background */}
+      <div style={{ position: "absolute", inset: 0, background: scheme.bg }} />
+      <BgDecoration pattern={bgPattern ?? "dots"} accent={scheme.accent} />
 
       {/* Brand */}
       <div
@@ -174,9 +170,9 @@ export const Template2: React.FC<RenderProps> = ({
               text={opt}
               index={i}
               isCorrect={i === correctIndex}
-              bgColor="rgba(255,255,255,0.18)"
-              correctColor="#00E676"
-              labelBg="rgba(255,255,255,0.3)"
+              bgColor={scheme.optionBg}
+              correctColor={scheme.accent}
+              labelBg={scheme.labelBg}
             />
           ))}
         </div>
@@ -186,7 +182,7 @@ export const Template2: React.FC<RenderProps> = ({
       <TimerBar color="#FFFFFF" trackColor="rgba(0,0,0,0.2)" />
 
       {/* Explanation */}
-      <AnswerReveal answer={question.answer} explanation={question.explanation} accentColor="#FFD700" />
+      <AnswerReveal answer={question.answer} explanation={question.explanation} accentColor={scheme.accent} />
 
       {/* Animated avatar */}
       <div
@@ -244,28 +240,3 @@ const AvatarCharacter: React.FC<{ tailAngle: number }> = ({ tailAngle }) => (
   </svg>
 );
 
-// Polka dot decorative background
-const PolkaDotBg: React.FC<{ frame: number }> = ({ frame }) => {
-  const dots = [
-    { x: 80, y: 160, size: 28 }, { x: 960, y: 200, size: 20 },
-    { x: 160, y: 1600, size: 24 }, { x: 900, y: 1700, size: 32 },
-    { x: 60, y: 900, size: 18 }, { x: 1000, y: 950, size: 22 },
-    { x: 200, y: 1200, size: 16 }, { x: 880, y: 1100, size: 26 },
-  ];
-  return (
-    <svg
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-      viewBox="0 0 1080 1920"
-    >
-      {dots.map((d, i) => (
-        <circle
-          key={i}
-          cx={d.x + Math.sin(frame * 0.04 + i) * 5}
-          cy={d.y + Math.cos(frame * 0.04 + i) * 5}
-          r={d.size}
-          fill="rgba(255,255,255,0.12)"
-        />
-      ))}
-    </svg>
-  );
-};

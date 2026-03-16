@@ -16,6 +16,8 @@ export const MultiQuestionVideo: React.FC<MultiRenderProps> = ({
   lang,
   audioUrls,
   framesPerQuestion,
+  colorScheme,
+  bgPattern,
 }) => {
   const TemplateComp =
     templateId === "Template2" ? Template2 :
@@ -52,6 +54,8 @@ export const MultiQuestionVideo: React.FC<MultiRenderProps> = ({
             lang={lang}
             audioUrls={audioUrls?.[i]}
             sequenceDuration={frames}
+            colorScheme={colorScheme}
+            bgPattern={bgPattern}
           />
         </Sequence>
         );

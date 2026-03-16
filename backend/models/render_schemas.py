@@ -27,6 +27,8 @@ class RenderRequest(BaseModel):
     reveal_delay: int = Field(default=10, ge=5, le=30)
     watermark: Optional[str] = Field(default=None, max_length=50)
     lang: Optional[str] = Field(default="fr", max_length=5)
+    color_scheme: Optional[str] = Field(default=None, max_length=20)
+    bg_pattern: Optional[str] = Field(default=None, max_length=20)
 
 
 class MultiRenderRequest(BaseModel):
@@ -34,6 +36,9 @@ class MultiRenderRequest(BaseModel):
     template_id: TemplateId = TemplateId.template1
     watermark: Optional[str] = Field(default=None, max_length=50)
     lang: Optional[str] = Field(default="fr", max_length=5)
+    voice: Optional[str] = Field(default=None, max_length=10)
+    color_scheme: Optional[str] = Field(default=None, max_length=20)
+    bg_pattern: Optional[str] = Field(default=None, max_length=20)
 
 
 class JobStatus(str, Enum):
@@ -52,3 +57,4 @@ class RenderJobResponse(BaseModel):
     completed_at: Optional[int] = None
     download_url: Optional[str] = None
     error: Optional[str] = None
+    progress: int = 0
